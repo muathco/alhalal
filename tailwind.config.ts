@@ -11,6 +11,16 @@ const config: Config = {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        brand: {
+          red: "#ED1C24",
+          dark: "#1A1A1A",
+          off: "#F5F0EB",
+          border: "#E0D8D0",
+          gray: "#6B6460",
+        },
+      },
+      fontFamily: {
+        sans: ["Thmanyah Sans", "Arial", "Helvetica", "sans-serif"],
       },
     },
   },
