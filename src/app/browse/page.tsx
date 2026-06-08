@@ -23,63 +23,130 @@ const SORTS = [
   { id: "delivery", label: "أسرع توصيل" },
 ] as const;
 
+function StepHeader({
+  number,
+  title,
+  summary,
+  onEdit,
+}: {
+  number: number;
+  title: string;
+  summary?: string;
+  onEdit?: () => void;
+}) {
+  const done = !!summary;
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <span
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+            done ? "bg-brand-red text-white" : "bg-brand-off text-brand-gray"
+          }`}
+        >
+          {done ? "✓" : number}
+        </span>
+        <div>
+          <h2 className="font-bold">{title}</h2>
+          {summary && <p className="text-sm text-brand-gray">{summary}</p>}
+        </div>
+      </div>
+      {done && onEdit && (
+        <button onClick={onEdit} className="text-sm font-bold text-brand-red">
+          تعديل
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function BrowsePage() {
-  const [step, setStep] = useState(1);
   const [type, setType] = useState<AnimalType | null>(null);
-  const [, setSize] = useState<"small" | "mid" | "large" | null>(null);
+  const [size, setSize] = useState<"small" | "mid" | "large" | null>(null);
   const [sort, setSort] = useState<(typeof SORTS)[number]["id"]>("rating");
+  const [editingType, setEditingType] = useState(false);
+  const [editingSize, setEditingSize] = useState(false);
+
+  const typeLabel = type ? TYPES.find((t) => t.id === type) : null;
+  const sizeInfo = size ? SIZES.find((s) => s.id === size) : null;
+
+  const showTypeStep = type === null || editingType;
+  const showSizeStep = type !== null && (size === null || editingSize);
+  const showResults = type !== null && size !== null && !editingType && !editingSize;
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-10">
-      {step === 1 && (
-        <section>
-          <h1 className="mb-6 text-center text-2xl font-bold">ما النوع الذي تبحث عنه؟</h1>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+    <main className="mx-auto max-w-4xl space-y-6 px-6 py-10">
+      {/* الخطوة ١ — النوع */}
+      <section className="rounded-2xl border border-brand-border bg-white p-6">
+        <StepHeader
+          number={1}
+          title="ما النوع الذي تبحث عنه؟"
+          summary={typeLabel ? `${typeLabel.emoji} ${typeLabel.label}` : undefined}
+          onEdit={() => setEditingType(true)}
+        />
+        {showTypeStep && (
+          <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
             {TYPES.map((t) => (
               <button
                 key={t.id}
                 onClick={() => {
                   setType(t.id);
-                  setStep(2);
+                  setEditingType(false);
+                  // اختيار نوع جديد يفتح خطوة الحجم من جديد
+                  if (t.id !== type) {
+                    setSize(null);
+                    setEditingSize(false);
+                  }
                 }}
-                className="rounded-2xl border border-brand-border bg-white p-6 text-center transition hover:border-brand-red hover:shadow-md"
+                className={`rounded-2xl border p-6 text-center transition hover:border-brand-red hover:shadow-md ${
+                  type === t.id ? "border-brand-red bg-brand-off" : "border-brand-border"
+                }`}
               >
                 <div className="mb-2 text-4xl">{t.emoji}</div>
                 <div className="font-bold">{t.label}</div>
               </button>
             ))}
           </div>
+        )}
+      </section>
+
+      {/* الخطوة ٢ — الحجم */}
+      {type !== null && (
+        <section className="rounded-2xl border border-brand-border bg-white p-6">
+          <StepHeader
+            number={2}
+            title="اختر الحجم المناسب"
+            summary={sizeInfo ? `${sizeInfo.label} · ${sizeInfo.weight} · ${sizeInfo.price}` : undefined}
+            onEdit={() => setEditingSize(true)}
+          />
+          {showSizeStep && (
+            <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
+              {SIZES.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => {
+                    setSize(s.id);
+                    setEditingSize(false);
+                  }}
+                  className={`rounded-2xl border p-6 text-center transition hover:border-brand-red hover:shadow-md ${
+                    size === s.id ? "border-brand-red bg-brand-off" : "border-brand-border"
+                  }`}
+                >
+                  <div className="mb-1 font-bold">{s.label}</div>
+                  <div className="text-sm text-brand-gray">{s.weight}</div>
+                  <div className="text-sm text-brand-gray">{s.price}</div>
+                </button>
+              ))}
+            </div>
+          )}
         </section>
       )}
 
-      {step === 2 && (
-        <section>
-          <button onClick={() => setStep(1)} className="mb-6 text-sm text-brand-gray">→ رجوع</button>
-          <h1 className="mb-6 text-center text-2xl font-bold">اختر الحجم المناسب</h1>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {SIZES.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => {
-                  setSize(s.id);
-                  setStep(3);
-                }}
-                className="rounded-2xl border border-brand-border bg-white p-6 text-center transition hover:border-brand-red hover:shadow-md"
-              >
-                <div className="mb-1 font-bold">{s.label}</div>
-                <div className="text-sm text-brand-gray">{s.weight}</div>
-                <div className="text-sm text-brand-gray">{s.price}</div>
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
+      {/* الخطوة ٣ — النتائج */}
+      {showResults && (
+        <section className="rounded-2xl border border-brand-border bg-white p-6">
+          <StepHeader number={3} title="النتائج" />
 
-      {step === 3 && (
-        <section>
-          <button onClick={() => setStep(2)} className="mb-6 text-sm text-brand-gray">→ رجوع</button>
-
-          <div className="mb-6 flex flex-wrap gap-2">
+          <div className="mb-6 mt-5 flex flex-wrap gap-2">
             {SORTS.map((s) => (
               <button
                 key={s.id}
@@ -104,7 +171,7 @@ export default function BrowsePage() {
               <div className="h-24 w-24 shrink-0 rounded-xl bg-brand-off" />
               <div className="flex-1">
                 <h3 className="font-bold">حضيرة الوادي الأخضر</h3>
-                <p className="text-sm text-brand-gray">تقييم ٤.٩ · المنطقة الوسطى · {type ? TYPES.find((t) => t.id === type)?.label : ""}</p>
+                <p className="text-sm text-brand-gray">تقييم ٤.٩ · المنطقة الوسطى · {typeLabel?.label}</p>
                 <p className="mt-1 font-bold text-brand-red">١٤٥٠ ر.س</p>
               </div>
               <span className="shrink-0 rounded-xl bg-brand-red px-5 py-2.5 text-sm font-bold text-white">
