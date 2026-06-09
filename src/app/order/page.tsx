@@ -113,8 +113,29 @@ function OrderContent() {
       const generatedOrderId = crypto.randomUUID();
       const generatedOrderNumber = `HL-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-      const sourceType =
-        payment === "applepay" ? "applepay" : "creditcard";
+      // ١. احفظ الطلب في Supabase
+      await fetch("/api/order/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          order_id: generatedOrderId,
+          order_number: generatedOrderNumber,
+          animal_id: animal!.id,
+          farm_id: farm!.id,
+          delivery_type: deliveryType,
+          slaughter_type: deliveryType !== "live" ? slaughterType : null,
+          delivery_address: address,
+          delivery_date: day,
+          subtotal_sar: price,
+          service_fee_sar: fee,
+          delivery_fee_sar: deliveryFee,
+          total_sar: total,
+          payment_method: payment,
+        }),
+      });
+
+      // ٢. أنشئ عملية الدفع عبر Moyasar
+      const sourceType = payment === "applepay" ? "applepay" : "creditcard";
       const res = await fetch("/api/payment/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -132,7 +153,7 @@ function OrderContent() {
       setOrderConfirmed(true);
 
       setTimeout(() => {
-        router.push(`/tracking/${generatedOrderNumber}`);
+        router.push(`/tracking/${generatedOrderNumber}?payment=success`);
       }, 1800);
     } catch (e) {
       setPayError(

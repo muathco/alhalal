@@ -104,6 +104,13 @@ export const ANIMALS: Animal[] = [
   { id: "44444444-4444-4444-4444-444444444409", farm_id: FARMS[4].id, type: "goat", breed: "ماعز نجدي", live_weight_kg: 17, net_weight_estimate_kg: 8.5, price_sar: 1100, slaughter_options: ["live", "slaughtered", "cut"], feed_type: "natural", images: [], is_available: true, is_reserved: false },
   { id: "44444444-4444-4444-4444-444444444410", farm_id: FARMS[4].id, type: "sheep", breed: "نجدي", live_weight_kg: 19, net_weight_estimate_kg: 9.5, price_sar: 1500, slaughter_options: ["live", "slaughtered", "cut"], feed_type: "natural", images: [], is_available: true, is_reserved: false },
   { id: "44444444-4444-4444-4444-444444444415", farm_id: FARMS[4].id, type: "goat", breed: "ماعز عارضي", live_weight_kg: 15, net_weight_estimate_kg: 7.5, price_sar: 990, slaughter_options: ["live", "slaughtered", "cut"], feed_type: "natural", images: [], is_available: true, is_reserved: false },
+
+  // ── حيوانات صغيرة (< 15 كجم) — لضمان ظهور نتائج في فئة "صغير" ──
+  { id: "44444444-4444-4444-4444-444444444420", farm_id: FARMS[0].id, type: "sheep", breed: "نجدي صغير", live_weight_kg: 12, net_weight_estimate_kg: 6, price_sar: 900, slaughter_options: ["live", "slaughtered", "cut"], feed_type: "natural", images: [], is_available: true, is_reserved: false },
+  { id: "44444444-4444-4444-4444-444444444421", farm_id: FARMS[1].id, type: "sheep", breed: "حري صغير", live_weight_kg: 13, net_weight_estimate_kg: 6.5, price_sar: 950, slaughter_options: ["live", "slaughtered", "cut"], feed_type: "certified", images: [], is_available: true, is_reserved: false },
+  { id: "44444444-4444-4444-4444-444444444422", farm_id: FARMS[1].id, type: "goat", breed: "ماعز صغير", live_weight_kg: 11, net_weight_estimate_kg: 5.5, price_sar: 780, slaughter_options: ["live", "slaughtered", "cut"], feed_type: "certified", images: [], is_available: true, is_reserved: false },
+  { id: "44444444-4444-4444-4444-444444444423", farm_id: FARMS[4].id, type: "goat", breed: "جدي", live_weight_kg: 10, net_weight_estimate_kg: 5, price_sar: 720, slaughter_options: ["live", "slaughtered", "cut"], feed_type: "natural", images: [], is_available: true, is_reserved: false },
+  { id: "44444444-4444-4444-4444-444444444424", farm_id: FARMS[3].id, type: "sheep", breed: "نعيمي صغير", live_weight_kg: 14, net_weight_estimate_kg: 7, price_sar: 1050, slaughter_options: ["live", "slaughtered", "cut"], feed_type: "natural", images: [], is_available: true, is_reserved: false },
 ];
 
 export const TYPE_LABELS: Record<AnimalType, { label: string; emoji: string }> = {
