@@ -3,25 +3,25 @@
 @tailwind utilities;
 
 @font-face {
-  font-family: 'Thmanyah Sans';
+  font-family: 'Thmanyah';
   src: url('/fonts/thmanyahsans-Light.otf') format('opentype');
   font-weight: 300;
   font-display: swap;
 }
 @font-face {
-  font-family: 'Thmanyah Sans';
+  font-family: 'Thmanyah';
   src: url('/fonts/thmanyahsans-Regular.otf') format('opentype');
   font-weight: 400;
   font-display: swap;
 }
 @font-face {
-  font-family: 'Thmanyah Sans';
+  font-family: 'Thmanyah';
   src: url('/fonts/thmanyahsans-Medium.otf') format('opentype');
   font-weight: 500 600;
   font-display: swap;
 }
 @font-face {
-  font-family: 'Thmanyah Sans';
+  font-family: 'Thmanyah';
   src: url('/fonts/thmanyahsans-Bold.otf') format('opentype');
   font-weight: 700 800;
   font-display: swap;
@@ -38,5 +38,5 @@
 body {
   color: var(--brand-dark);
   background: var(--brand-off);
-  font-family: 'Thmanyah Sans', Arial, Helvetica, sans-serif;
+  font-family: 'Thmanyah', sans-serif;
 }

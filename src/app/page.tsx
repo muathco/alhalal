@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { FARMS } from "@/lib/data";
 
 export default function Home() {
   return (
@@ -97,17 +98,36 @@ export default function Home() {
       <section className="mx-auto max-w-5xl px-6 py-20">
         <h2 className="mb-10 text-center text-3xl font-bold">الحضائر المميزة</h2>
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3">
-          {[1, 2, 3].map((i) => (
+          {FARMS.slice(0, 3).map((farm) => (
             <Link
-              key={i}
-              href="/browse"
+              key={farm.id}
+              href={`/farm/${farm.id}`}
               className="block rounded-2xl border border-brand-border bg-white p-5 transition hover:shadow-lg"
             >
-              <div className="mb-3 h-32 rounded-xl bg-brand-off" />
-              <h3 className="font-bold">حضيرة الوادي {i}</h3>
-              <p className="text-sm text-brand-gray">تقييم ٤.٨ · المنطقة الوسطى</p>
+              <div className="mb-3 flex h-32 items-center justify-center rounded-xl bg-brand-off text-5xl">
+                🐑
+              </div>
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold">{farm.name}</h3>
+                {farm.is_verified && (
+                  <span className="rounded-full bg-brand-off px-2 py-0.5 text-xs font-bold text-brand-dark">
+                    ✓ موثّق
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-sm text-brand-gray">
+                ★{farm.avg_rating} · {farm.total_reviews} تقييم · {farm.region}
+              </p>
             </Link>
           ))}
+        </div>
+        <div className="mt-8 text-center">
+          <Link
+            href="/browse"
+            className="inline-block rounded-xl border border-brand-border bg-white px-8 py-3 font-bold text-brand-dark transition hover:bg-brand-off"
+          >
+            تصفح كل الحضائر ←
+          </Link>
         </div>
       </section>
 

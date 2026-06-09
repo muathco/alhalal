@@ -20,7 +20,7 @@ const config: Config = {
         },
       },
       fontFamily: {
-        sans: ["Thmanyah Sans", "Arial", "Helvetica", "sans-serif"],
+        sans: ["Thmanyah", "sans-serif"],
       },
     },
   },
