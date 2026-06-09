@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import Link from "next/link";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { getAnimal, getFarm, TYPE_LABELS } from "@/lib/data";
 
-const PRICE = 1450;
 const FEE_RATE = 0.04;
 
 const DELIVERY_DAYS = [
@@ -21,12 +21,26 @@ const PAYMENT_LABEL = { mada: "مدى", card: "بطاقة", applepay: "Apple Pay
 
 type DeliveryType = "live" | "slaughtered" | "cut";
 
-function StepHeader({ number, title, summary, onEdit }: { number: number; title: string; summary?: string; onEdit?: () => void }) {
+function StepHeader({
+  number,
+  title,
+  summary,
+  onEdit,
+}: {
+  number: number;
+  title: string;
+  summary?: string;
+  onEdit?: () => void;
+}) {
   const done = !!summary;
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-3">
-        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${done ? "bg-brand-red text-white" : "bg-brand-off text-brand-gray"}`}>
+        <span
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+            done ? "bg-brand-red text-white" : "bg-brand-off text-brand-gray"
+          }`}
+        >
           {done ? "✓" : number}
         </span>
         <div>
@@ -43,30 +57,91 @@ function StepHeader({ number, title, summary, onEdit }: { number: number; title:
   );
 }
 
-export default function OrderPage() {
+function OrderContent() {
+  const router = useRouter();
+  const params = useSearchParams();
+
+  const animalId = params.get("animal");
+  const farmId = params.get("farm");
+
+  // All hooks must come before any conditional return
   const [detailsConfirmed, setDetailsConfirmed] = useState(false);
   const [editingDetails, setEditingDetails] = useState(false);
   const [orderConfirmed, setOrderConfirmed] = useState(false);
-
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
   const [deliveryType, setDeliveryType] = useState<DeliveryType>("slaughtered");
   const [slaughterType, setSlaughterType] = useState<"full" | "half">("full");
   const [day, setDay] = useState(DELIVERY_DAYS[0].id);
   const [address, setAddress] = useState("");
   const [payment, setPayment] = useState<"mada" | "card" | "applepay">("mada");
+  const [orderNumber, setOrderNumber] = useState<string | null>(null);
 
-  const fee = useMemo(() => Math.round(PRICE * FEE_RATE), []);
+  const animal = animalId ? getAnimal(animalId) : undefined;
+  const farm = farmId ? getFarm(farmId) : animal ? getFarm(animal.farm_id) : undefined;
+
+  const price = animal?.price_sar ?? 0;
+  const fee = useMemo(() => Math.round(price * FEE_RATE), [price]);
   const deliveryFee = DELIVERY_DAYS.find((d) => d.id === day)?.price ?? 0;
-  const total = PRICE + fee + deliveryFee;
+  const total = price + fee + deliveryFee;
   const dayLabel = DELIVERY_DAYS.find((d) => d.id === day)?.label;
 
-  const orderNumber = "HL-20260608-0001";
+  useEffect(() => {
+    if (!animal || !farm) {
+      router.replace("/browse");
+    }
+  }, [animal, farm, router]);
+
+  if (!animal || !farm) {
+    return (
+      <main className="mx-auto max-w-md px-6 py-20 text-center text-sm text-brand-gray">
+        لم يتم العثور على ذبيحة محددة — جارٍ تحويلك إلى صفحة التصفح...
+      </main>
+    );
+  }
 
   const showDetails = !detailsConfirmed || editingDetails;
-  const showConfirm = detailsConfirmed && !editingDetails;
 
   const detailsSummary = detailsConfirmed
     ? `${DELIVERY_TYPE_LABEL[deliveryType]}${deliveryType !== "live" ? ` · ${slaughterType === "full" ? "كامل" : "نصف"}` : ""} · ${dayLabel} · ${address.slice(0, 24)}${address.length > 24 ? "…" : ""}`
     : undefined;
+
+  async function handlePay() {
+    setPaying(true);
+    setPayError(null);
+    try {
+      const generatedOrderId = crypto.randomUUID();
+      const generatedOrderNumber = `HL-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+      const sourceType =
+        payment === "applepay" ? "applepay" : "creditcard";
+      const res = await fetch("/api/payment/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount_sar: total,
+          order_number: generatedOrderNumber,
+          order_id: generatedOrderId,
+          source: { type: sourceType },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "تعذّر إتمام الدفع");
+
+      setOrderNumber(generatedOrderNumber);
+      setOrderConfirmed(true);
+
+      setTimeout(() => {
+        router.push(`/tracking/${generatedOrderNumber}`);
+      }, 1800);
+    } catch (e) {
+      setPayError(
+        e instanceof Error ? e.message : "تعذّر إتمام الدفع، حاول مرة أخرى"
+      );
+    } finally {
+      setPaying(false);
+    }
+  }
 
   return (
     <main className="mx-auto max-w-2xl space-y-6 px-6 py-10 pb-28">
@@ -74,18 +149,30 @@ export default function OrderPage() {
 
       {/* الخطوة ١ — تفاصيل الطلب */}
       <section className="rounded-2xl border border-brand-border bg-white p-6">
-        <StepHeader number={1} title="تفاصيل الطلب" summary={detailsSummary} onEdit={() => setEditingDetails(true)} />
+        <StepHeader
+          number={1}
+          title="تفاصيل الطلب"
+          summary={detailsSummary}
+          onEdit={() => setEditingDetails(true)}
+        />
 
         {showDetails && (
           <div className="mt-5 space-y-6">
             {/* ملخص الذبيحة */}
             <div className="rounded-xl border border-brand-border p-4">
-              <h3 className="mb-3 font-bold">ملخص الذبيحة المختارة</h3>
+              <h3 className="mb-3 font-bold">الذبيحة المختارة</h3>
               <div className="flex items-center gap-4">
-                <div className="h-16 w-16 shrink-0 rounded-lg bg-brand-off" />
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-brand-off text-3xl">
+                  {TYPE_LABELS[animal.type].emoji}
+                </div>
                 <div>
-                  <p className="font-bold">خروف نجدي — حضيرة الوادي الأخضر</p>
-                  <p className="text-sm text-brand-gray">الوزن: ١٨ كجم · {PRICE} ر.س</p>
+                  <p className="font-bold">
+                    {animal.breed} — {farm.name}
+                  </p>
+                  <p className="text-sm text-brand-gray">
+                    الوزن: {animal.live_weight_kg} كجم ·{" "}
+                    {price.toLocaleString("ar-SA")} ر.س
+                  </p>
                 </div>
               </div>
             </div>
@@ -98,7 +185,11 @@ export default function OrderPage() {
                   <button
                     key={d}
                     onClick={() => setDeliveryType(d)}
-                    className={`rounded-xl border px-4 py-3 text-sm font-bold transition ${deliveryType === d ? "border-brand-red bg-brand-red text-white" : "border-brand-border text-brand-gray"}`}
+                    className={`rounded-xl border px-4 py-3 text-sm font-bold transition ${
+                      deliveryType === d
+                        ? "border-brand-red bg-brand-red text-white"
+                        : "border-brand-border text-brand-gray"
+                    }`}
                   >
                     {DELIVERY_TYPE_LABEL[d]}
                   </button>
@@ -111,14 +202,20 @@ export default function OrderPage() {
               <div className="rounded-xl border border-brand-border p-4">
                 <h3 className="mb-3 font-bold">طريقة السلخ</h3>
                 <div className="grid grid-cols-2 gap-3">
-                  {([
-                    { id: "full", label: "كامل" },
-                    { id: "half", label: "نصف" },
-                  ] as const).map((s) => (
+                  {(
+                    [
+                      { id: "full", label: "كامل" },
+                      { id: "half", label: "نصف" },
+                    ] as const
+                  ).map((s) => (
                     <button
                       key={s.id}
                       onClick={() => setSlaughterType(s.id)}
-                      className={`rounded-xl border px-4 py-3 text-sm font-bold transition ${slaughterType === s.id ? "border-brand-red bg-brand-red text-white" : "border-brand-border text-brand-gray"}`}
+                      className={`rounded-xl border px-4 py-3 text-sm font-bold transition ${
+                        slaughterType === s.id
+                          ? "border-brand-red bg-brand-red text-white"
+                          : "border-brand-border text-brand-gray"
+                      }`}
                     >
                       {s.label}
                     </button>
@@ -135,10 +232,16 @@ export default function OrderPage() {
                   <button
                     key={d.id}
                     onClick={() => setDay(d.id)}
-                    className={`rounded-xl border px-3 py-3 text-center text-sm font-bold transition ${day === d.id ? "border-brand-red bg-brand-red text-white" : "border-brand-border text-brand-gray"}`}
+                    className={`rounded-xl border px-3 py-3 text-center text-sm font-bold transition ${
+                      day === d.id
+                        ? "border-brand-red bg-brand-red text-white"
+                        : "border-brand-border text-brand-gray"
+                    }`}
                   >
                     <div>{d.label}</div>
-                    <div className="text-xs font-normal opacity-80">{d.price === 0 ? "مجاناً" : `+${d.price} ر.س`}</div>
+                    <div className="text-xs font-normal opacity-80">
+                      {d.price === 0 ? "مجاناً" : `+${d.price} ر.س`}
+                    </div>
                   </button>
                 ))}
               </div>
@@ -164,7 +267,11 @@ export default function OrderPage() {
                   <button
                     key={p}
                     onClick={() => setPayment(p)}
-                    className={`rounded-xl border px-3 py-3 text-sm font-bold transition ${payment === p ? "border-brand-red bg-brand-red text-white" : "border-brand-border text-brand-gray"}`}
+                    className={`rounded-xl border px-3 py-3 text-sm font-bold transition ${
+                      payment === p
+                        ? "border-brand-red bg-brand-red text-white"
+                        : "border-brand-border text-brand-gray"
+                    }`}
                   >
                     {PAYMENT_LABEL[p]}
                   </button>
@@ -176,16 +283,30 @@ export default function OrderPage() {
             <div className="rounded-xl border border-brand-border p-4">
               <h3 className="mb-3 font-bold">ملخص الأسعار</h3>
               <div className="space-y-1.5 text-sm">
-                <div className="flex justify-between"><span className="text-brand-gray">سعر الذبيحة</span><span>{PRICE} ر.س</span></div>
-                <div className="flex justify-between"><span className="text-brand-gray">رسوم الخدمة (٤٪)</span><span>{fee} ر.س</span></div>
-                <div className="flex justify-between"><span className="text-brand-gray">التوصيل</span><span>{deliveryFee === 0 ? "مجاناً" : `${deliveryFee} ر.س`}</span></div>
-                <div className="mt-2 flex justify-between border-t border-brand-border pt-2 font-bold"><span>الإجمالي</span><span className="text-brand-red">{total} ر.س</span></div>
+                <div className="flex justify-between">
+                  <span className="text-brand-gray">سعر الذبيحة</span>
+                  <span>{price.toLocaleString("ar-SA")} ر.س</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-brand-gray">رسوم الخدمة (٤٪)</span>
+                  <span>{fee.toLocaleString("ar-SA")} ر.س</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-brand-gray">التوصيل</span>
+                  <span>{deliveryFee === 0 ? "مجاناً" : `${deliveryFee} ر.س`}</span>
+                </div>
+                <div className="mt-2 flex justify-between border-t border-brand-border pt-2 font-bold">
+                  <span>الإجمالي</span>
+                  <span className="text-brand-red">
+                    {total.toLocaleString("ar-SA")} ر.س
+                  </span>
+                </div>
               </div>
             </div>
 
-            {/* شريط ضمان الختم */}
             <div className="rounded-xl bg-brand-dark p-4 text-center text-sm text-white">
-              🔒 ذبيحتك مضمونة بنظام الختم — تتبع كل مرحلة بصورة وتوقيت حتى التسليم
+              🔒 ذبيحتك مضمونة بنظام الختم — تتبع كل مرحلة بصورة وتوقيت حتى
+              التسليم
             </div>
 
             <button
@@ -202,29 +323,65 @@ export default function OrderPage() {
         )}
       </section>
 
-      {/* الخطوة ٢ — تأكيد */}
-      {showConfirm && (
+      {/* الخطوة ٢ — تأكيد ودفع */}
+      {detailsConfirmed && !editingDetails && (
         <section className="rounded-2xl border border-brand-border bg-white p-6">
-          <StepHeader number={2} title="تأكيد ودفع" summary={orderConfirmed ? `تم الدفع — ${total} ر.س` : undefined} />
+          <StepHeader
+            number={2}
+            title="تأكيد ودفع"
+            summary={
+              orderConfirmed
+                ? `تم الدفع — ${total.toLocaleString("ar-SA")} ر.س`
+                : undefined
+            }
+          />
 
           {!orderConfirmed && (
             <div className="mt-5 space-y-6">
               <div className="rounded-xl border border-brand-border p-4">
                 <h3 className="mb-3 font-bold">مراجعة الطلب</h3>
                 <div className="space-y-1.5 text-sm">
-                  <div className="flex justify-between"><span className="text-brand-gray">نوع التسليم</span><span>{DELIVERY_TYPE_LABEL[deliveryType]}</span></div>
+                  <div className="flex justify-between">
+                    <span className="text-brand-gray">نوع التسليم</span>
+                    <span>{DELIVERY_TYPE_LABEL[deliveryType]}</span>
+                  </div>
                   {deliveryType !== "live" && (
-                    <div className="flex justify-between"><span className="text-brand-gray">طريقة السلخ</span><span>{slaughterType === "full" ? "كامل" : "نصف"}</span></div>
+                    <div className="flex justify-between">
+                      <span className="text-brand-gray">طريقة السلخ</span>
+                      <span>{slaughterType === "full" ? "كامل" : "نصف"}</span>
+                    </div>
                   )}
-                  <div className="flex justify-between"><span className="text-brand-gray">الموعد</span><span>{dayLabel}</span></div>
-                  <div className="flex justify-between"><span className="text-brand-gray">العنوان</span><span className="max-w-[60%] truncate">{address}</span></div>
-                  <div className="flex justify-between"><span className="text-brand-gray">الدفع</span><span>{PAYMENT_LABEL[payment]}</span></div>
-                  <div className="mt-2 flex justify-between border-t border-brand-border pt-2 font-bold"><span>الإجمالي</span><span className="text-brand-red">{total} ر.س</span></div>
+                  <div className="flex justify-between">
+                    <span className="text-brand-gray">الموعد</span>
+                    <span>{dayLabel}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-brand-gray">العنوان</span>
+                    <span className="max-w-[60%] truncate">{address}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-brand-gray">الدفع</span>
+                    <span>{PAYMENT_LABEL[payment]}</span>
+                  </div>
+                  <div className="mt-2 flex justify-between border-t border-brand-border pt-2 font-bold">
+                    <span>الإجمالي</span>
+                    <span className="text-brand-red">
+                      {total.toLocaleString("ar-SA")} ر.س
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              <button onClick={() => setOrderConfirmed(true)} className="w-full rounded-xl bg-brand-red py-3.5 text-lg font-bold text-white">
-                تأكيد ودفع {total} ر.س
+              {payError && <p className="text-sm text-brand-red">{payError}</p>}
+
+              <button
+                onClick={handlePay}
+                disabled={paying}
+                className="w-full rounded-xl bg-brand-red py-3.5 text-lg font-bold text-white disabled:opacity-50"
+              >
+                {paying
+                  ? "جارٍ معالجة الدفع عبر Moyasar..."
+                  : `تأكيد ودفع ${total.toLocaleString("ar-SA")} ر.س`}
               </button>
             </div>
           )}
@@ -232,28 +389,25 @@ export default function OrderPage() {
       )}
 
       {/* الخطوة ٣ — نجاح */}
-      {orderConfirmed && (
+      {orderConfirmed && orderNumber && (
         <section className="rounded-2xl border border-brand-border bg-white p-6 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brand-red text-2xl text-white">✓</div>
-          <h2 className="mb-1 text-xl font-bold">تم تأكيد طلبك</h2>
-          <p className="mb-1 text-sm text-brand-gray">رقم طلبك</p>
-          <p className="mb-6 text-lg font-bold text-brand-red">{orderNumber}</p>
-
-          <div className="mb-6 rounded-xl border border-brand-border p-4 text-right">
-            <h3 className="mb-3 font-bold">مراحل الختم القادمة</h3>
-            <ul className="space-y-2 text-sm text-brand-gray">
-              <li>١. تخصيص الذبيحة</li>
-              <li>٢. قبيل الذبح</li>
-              <li>٣. بعد الذبح</li>
-              <li>٤. التغليف والتوصيل</li>
-            </ul>
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brand-red text-2xl text-white">
+            ✓
           </div>
-
-          <Link href={`/tracking/${orderNumber}`} className="block w-full rounded-xl bg-brand-red py-3.5 text-center text-lg font-bold text-white">
-            تتبع طلبي
-          </Link>
+          <h2 className="mb-1 text-xl font-bold">تم تأكيد طلبك والدفع بنجاح</h2>
+          <p className="mb-1 text-sm text-brand-gray">رقم طلبك</p>
+          <p className="mb-4 text-lg font-bold text-brand-red">{orderNumber}</p>
+          <p className="text-sm text-brand-gray">جارٍ تحويلك لصفحة التتبع...</p>
         </section>
       )}
     </main>
+  );
+}
+
+export default function OrderPage() {
+  return (
+    <Suspense>
+      <OrderContent />
+    </Suspense>
   );
 }
